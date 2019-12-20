@@ -15,13 +15,6 @@ $ViewList['logout'] = array(
     'params' => array(),
     'unordered_params' => array()
 );
-$ViewList['change_password'] = array(
-    'functions' => array('auth'),
-    'script' => 'change_password.php',
-    'params' => array(),
-    'unordered_params' => array()
-);
-
 
 $FunctionList = array();
 $FunctionList['auth'] = array();

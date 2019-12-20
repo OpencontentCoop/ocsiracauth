@@ -17,11 +17,6 @@ interface OCSiracAuthUserHandlerInterface
     public function getMappedVars();
 
     /**
-     * @return string
-     */
-    public function generateUserRemoteId();
-
-    /**
      * @return eZContentClass
      */
     public function getUserClass();

@@ -14,8 +14,6 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
 
     private $existingUserHandlers;
 
-    private $remoteIdGenerator;
-
     private $serverVars = [];
 
     private $mappedVars = [
@@ -25,11 +23,11 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         'Attributes' => [],
     ];
 
+    private $accountAttributeIdentifier;
+
     public function __construct()
     {
         $this->siracIni = eZINI::instance('ocsiracauth.ini');
-
-        $this->remoteIdGenerator = $this->siracIni->variable('HandlerSettings', 'RemoteIdGenerator');
 
         foreach ($this->siracIni->variable('HandlerSettings', 'ExistingUserHandlers') as $handler) {
             $callable = explode('::', $handler);
@@ -60,6 +58,16 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         }
 
         $this->mappedVars['FiscalCode'] = strtoupper($this->mappedVars['FiscalCode']);
+
+        /**
+         * @var string $identifier
+         * @var eZContentClass $classAttribute
+         */
+        foreach ($this->getUserClass()->dataMap() as $identifier => $classAttribute) {
+            if ($classAttribute->attribute('data_type_string') == eZUserType::DATA_TYPE_STRING) {
+                $this->accountAttributeIdentifier = $identifier;
+            }
+        }
     }
 
     public function log($level, $message, $context)
@@ -105,7 +113,6 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         foreach ($class->dataMap() as $identifier => $classAttribute) {
             if ($classAttribute->attribute('data_type_string') == eZUserType::DATA_TYPE_STRING) {
                 $attributes[$identifier] = $this->mappedVars['UserLogin'] . '|' . $this->mappedVars['UserEmail'] . '||' . eZUser::passwordHashTypeName(eZUser::hashType()) . '|1';
-                $accountIdentifier = $identifier;
             } else {
                 if (isset($this->mappedVars['Attributes'][$identifier])) {
                     $attributes[$identifier] = $this->mappedVars['Attributes'][$identifier];
@@ -113,31 +120,11 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
             }
         }
 
-        if ($accountIdentifier === false || !isset($attributes[$accountIdentifier])) {
+        if ($this->accountAttributeIdentifier === false || !isset($attributes[$this->accountAttributeIdentifier])) {
             throw new Exception('Invalid user account data');
         }
 
         return $attributes;
-    }
-
-    /**
-     * @return string
-     * @throws Exception
-     */
-    public function generateUserRemoteId()
-    {
-        $remoteId = false;
-        if (is_callable($this->remoteIdGenerator)) {
-            $remoteId = call_user_func($this->remoteIdGenerator, $this);
-        } else {
-            throw new Exception("{$this->remoteIdGenerator} is not callable");
-        }
-
-        if (!is_string($remoteId)) {
-            throw new Exception('Generated remote_id is not valid');
-        }
-
-        return $remoteId;
     }
 
     /**
@@ -179,14 +166,16 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
 
             $this->log('debug', 'Auth user exist: update user data', __METHOD__);
 
-            if ($user->attribute('email') !== $this->mappedVars['UserEmail']){
-                $userByEmail = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
-                if (!$userByEmail){
-                    $user->setAttribute('email', $this->mappedVars['UserEmail']);
-                    $user->store();
-                }
-            }
+            //if ($user->attribute('email') !== $this->mappedVars['UserEmail']){
+            //    $userByEmail = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
+            //    if (!$userByEmail){
+            //        $user->setAttribute('email', $this->mappedVars['UserEmail']);
+            //        $user->store();
+            //    }
+            //}
 
+            $attributes = $this->getUserAttributesString();
+            unset($attributes[$this->accountAttributeIdentifier]);
             eZContentFunctions::updateAndPublishObject($user->contentObject(), ['attributes' => $this->getUserAttributesString()]);
 
             $this->loginUser($user);
@@ -197,7 +186,6 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
 
         $params = array();
         $params['creator_id'] = $this->getUserCreatorId();
-        $params['remote_id'] = $this->generateUserRemoteId();
         $params['class_identifier'] = $this->getUserClass()->attribute('identifier');
         $params['parent_node_id'] = $this->getUserParentNodeId();
         $params['attributes'] = $this->getUserAttributesString();

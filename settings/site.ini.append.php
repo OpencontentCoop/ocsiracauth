@@ -1,8 +1,5 @@
 <?php /* #?ini charset="utf-8"?
 
-[Event]
-Listeners[]=request/input@OCSiracAuthUserTools::onInputPreventPasswordChange
-
 [RoleSettings]
 PolicyOmitList[]=sirac/auth
 PolicyOmitList[]=sirac/logout
