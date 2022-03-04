@@ -27,6 +27,11 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
 
     public function __construct()
     {
+        $this->initialize();
+    }
+
+    protected function initialize()
+    {
         $this->siracIni = eZINI::instance('ocsiracauth.ini');
 
         foreach ($this->siracIni->variable('HandlerSettings', 'ExistingUserHandlers') as $handler) {

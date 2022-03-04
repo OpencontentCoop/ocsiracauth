@@ -6,11 +6,23 @@ $ini = eZINI::instance('ocsiracauth.ini');
 
 $handlerClass = $ini->variable('HandlerSettings', 'UserHandler');
 if (class_exists($handlerClass)) {
-    /** @var OCSiracAuthUserHandlerInterface $handler */
+    /** @var OCSiracAuthUserHandlerInterface|OCSiracReloadableHandlerInterface $handler */
     $handler = new $handlerClass();
 } else {
-    eZDebug::writeError("Missing ini configuration ocsiracauth.ini[HandlerSettings]UserHandler");
-    return $module->handleError(eZError::KERNEL_NOT_AVAILABLE, 'kernel', array(), array('OCSiracAuthError', 2));
+    eZDebug::writeError("Missing ini configuration ocsiracauth.ini[HandlerSettings]UserHandler", __FILE__);
+    return $module->handleError(eZError::KERNEL_NOT_AVAILABLE, 'kernel', [], ['OCSiracAuthError', 2]);
+}
+
+if ($Params['EmbedOauth'] === '_oauth' && OCSiracEmbedOauth::instance()->supports($handler)) {
+    try {
+        $oauthRunnerResult = OCSiracEmbedOauth::instance()->run($module, $handler);
+        if ($oauthRunnerResult === OCSiracEmbedOauth::ALREADY_LOGGED) {
+            return;
+        }
+    } catch (Exception $e) {
+        eZDebug::writeError($e->getMessage(), __FILE__);
+        return $module->handleError(eZError::KERNEL_NOT_FOUND, 'kernel', [], ['OCSiracAuthError', 3]);
+    }
 }
 
 try {
@@ -28,7 +40,7 @@ try {
 
 } catch (Exception $e) {
 
-    eZDebug::writeError($e->getMessage());
+    eZDebug::writeError($e->getMessage(), __FILE__);
 
-    return $module->handleError(eZError::KERNEL_NOT_FOUND, 'kernel', array(), array('OCSiracAuthError', 2));
+    return $module->handleError(eZError::KERNEL_NOT_FOUND, 'kernel', [], ['OCSiracAuthError', 2]);
 }

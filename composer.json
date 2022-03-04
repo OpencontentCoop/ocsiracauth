@@ -11,7 +11,8 @@
     "license": "GPL-2.0",    
     "minimum-stability": "dev",
     "require": {
-        "ezsystems/ezpublish-legacy-installer": "*"
+        "ezsystems/ezpublish-legacy-installer": "*",
+        "league/oauth2-client": "2.*"
     },
     "extra": {
         "ezpublish-legacy-extension-name": "ocsiracauth"

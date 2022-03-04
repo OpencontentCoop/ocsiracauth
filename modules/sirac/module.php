@@ -6,7 +6,7 @@ $ViewList = array();
 $ViewList['auth'] = array(
     'functions' => array('auth'),
     'script' => 'auth.php',
-    'params' => array(),
+    'params' => array('EmbedOauth'),
     'unordered_params' => array()
 );
 $ViewList['logout'] = array(
