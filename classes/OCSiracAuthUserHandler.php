@@ -55,10 +55,10 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         foreach ($mapper as $name => $var) {
             if ($name == 'Attributes') {
                 foreach ($mapper['Attributes'] as $attributeName => $attributeVar) {
-                    $this->mappedVars['Attributes'][$attributeName] = trim($this->serverVars[$attributeVar]);
+                    $this->mappedVars['Attributes'][$attributeName] = $this->mapServerVar($attributeVar);
                 }
-            } elseif (isset($this->serverVars[$var])) {
-                $this->mappedVars[$name] = trim($this->serverVars[$var]);
+            } else {
+                $this->mappedVars[$name] = $this->mapServerVar($var);
             }
         }
 
@@ -73,6 +73,23 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
                 $this->accountAttributeIdentifier = $identifier;
             }
         }
+    }
+
+    private function mapServerVar($var)
+    {
+        if (strpos($var, '|') !== false){
+            $vars = explode('|', $var);
+            foreach ($vars as $optionVar){
+                $mapped = $this->mapServerVar($optionVar);
+                if (!empty($mapped)) {
+                    return $mapped;
+                }
+            }
+        } elseif (isset($this->serverVars[$var])) {
+            return trim($this->serverVars[$var]);
+        }
+
+        return false;
     }
 
     public function log($level, $message, $context)

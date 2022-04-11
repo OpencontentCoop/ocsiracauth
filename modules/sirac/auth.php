@@ -32,6 +32,7 @@ try {
         print_r($handler->getServerVars());
         print_r($handler->getMappedVars());
         print_r($ini->group('HandlerSettings'));
+        print_r($ini->group('Mapper'));
         eZDisplayDebug();
         eZExecution::cleanExit();
     }
