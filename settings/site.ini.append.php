@@ -3,7 +3,7 @@
 [RoleSettings]
 PolicyOmitList[]=sirac/auth
 PolicyOmitList[]=sirac/logout
-PolicyOmitList[]=sirac/change_password
+PolicyOmitList[]=sirac/slo
 
 [UserSettings]
 LogoutRedirect=/sirac/logout

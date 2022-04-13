@@ -13,7 +13,7 @@ if (class_exists($handlerClass)){
 }
 
 try{
-	return $handler->logout($module);	
+	return $handler->logout($module);
 }catch(Exception $e){
 	eZDebug::writeError($e->getMessage());	
 }

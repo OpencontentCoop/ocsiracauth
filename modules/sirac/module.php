@@ -15,6 +15,12 @@ $ViewList['logout'] = array(
     'params' => array(),
     'unordered_params' => array()
 );
+$ViewList['slo'] = array(
+    'functions' => array('auth'),
+    'script' => 'slo.php',
+    'params' => array(),
+    'unordered_params' => array()
+);
 
 $FunctionList = array();
 $FunctionList['auth'] = array();
