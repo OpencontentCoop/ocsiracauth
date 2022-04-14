@@ -11,5 +11,13 @@
             <source>Back to site</source>
             <translation>Torna al sito</translation>
         </message>
+        <message>
+            <source>Something went wrong...</source>
+            <translation>Qualcosa è andato storto...</translation>
+        </message>
+        <message>
+            <source>Contact support and report that you have received an error with code %code</source>
+            <translation>Contatta il supporto e comunica che hai ricevuto un errore con codice %code</translation>
+        </message>
     </context>
 </TS>

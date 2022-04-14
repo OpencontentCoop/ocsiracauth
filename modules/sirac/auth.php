@@ -10,7 +10,7 @@ if (class_exists($handlerClass)) {
     $handler = new $handlerClass();
 } else {
     eZDebug::writeError("Missing ini configuration ocsiracauth.ini[HandlerSettings]UserHandler", __FILE__);
-    return $module->handleError(eZError::KERNEL_NOT_AVAILABLE, 'kernel', [], ['OCSiracAuthError', 2]);
+    return $module->handleError(SiracException::CONFIGURATION_ERROR, 'sirac');
 }
 
 if ($Params['EmbedOauth'] === '_oauth' && OCSiracEmbedOauth::instance()->supports($handler)) {
@@ -21,27 +21,30 @@ if ($Params['EmbedOauth'] === '_oauth' && OCSiracEmbedOauth::instance()->support
         }
     } catch (Exception $e) {
         eZDebug::writeError($e->getMessage(), __FILE__);
-        return $module->handleError(eZError::KERNEL_NOT_FOUND, 'kernel', [], ['OCSiracAuthError', 3]);
+        return $module->handleError(SiracException::OEMBED_ERROR, 'sirac');
     }
 }
 
 try {
-
     if (isset($_GET['inspect'])) {
-        echo '<pre>';
-        print_r($handler->getServerVars());
-        print_r($handler->getMappedVars());
-        print_r($ini->group('HandlerSettings'));
-        print_r($ini->group('Mapper'));
+        echo '<strong><code>Varibili recuperate dal sistema di autenticazione</code></strong>';
+        echo '<pre>';print_r($handler->getServerVars());echo '</pre>';
+        echo '<strong><code>Variabili mappate</code></strong>';
+        echo '<pre>';print_r($handler->getMappedVars());echo '</pre>';
+        echo '<strong><code>Configurazione del gestore delle variabili</code></strong>';
+        echo '<pre>';print_r($ini->group('HandlerSettings'));echo '</pre>';
+        echo '<strong><code>Mappa delle variabili</code></strong>';
+        echo '<pre>';print_r($ini->group('Mapper'));echo '</pre>';
         eZDisplayDebug();
         eZExecution::cleanExit();
     }
-
     return $handler->login($module);
 
-} catch (Exception $e) {
-
+} catch (SiracException $e) {
     eZDebug::writeError($e->getMessage(), __FILE__);
+    return $module->handleError($e->getErrorCode(), 'sirac');
 
-    return $module->handleError(eZError::KERNEL_NOT_FOUND, 'kernel', [], ['OCSiracAuthError', 2]);
+} catch (Exception $e) {
+    eZDebug::writeError($e->getMessage(), __FILE__);
+    return $module->handleError(SiracException::UNKNOWN_ERROR, 'sirac');
 }

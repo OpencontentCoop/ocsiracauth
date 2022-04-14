@@ -1,6 +1,6 @@
 <?php
 
-class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
+class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSiracAuthUserHandlerMultiClassesCapableInterface
 {
     /**
      * @var eZINI
@@ -147,11 +147,11 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
     public function login(eZModule $module)
     {
         if (empty($this->serverVars)) {
-            throw new Exception("Server vars not found", 1);
+            throw new SiracMissingServerVarException("Server vars not found", 1);
         }
 
         if (empty($this->mappedVars['UserLogin']) || empty($this->mappedVars['UserEmail']) || empty($this->mappedVars['FiscalCode'])) {
-            throw new Exception("Mapped vars are incomplete", 1);
+            throw new SiracMissingServerVarException("Mapped vars are incomplete", 1);
         }
 
         $user = $this->getExistingUser();
@@ -159,38 +159,46 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         if ($user instanceof eZUser) {
             $userObject = $user->contentObject();
             if ($userObject instanceof eZContentObject) {
-                $this->log('debug', 'Auth user exist: update user data', __METHOD__);
+                if ($userObject->attribute('class_identifier') == $this->getUserClass()->attribute('identifier')) {
+                    $this->log('debug', 'Auth user exist: update user data', __METHOD__);
 
-                $attributes = $this->getUserAttributesString();
-                unset($attributes[$this->accountAttributeIdentifier]);
+                    $attributes = $this->getUserAttributesString();
+                    unset($attributes[$this->accountAttributeIdentifier]);
 
-                if (!$userObject->mainNodeID()) {
-                    if (count($userObject->assignedNodes()) === 0) {
-                        $nodeAssignment = eZNodeAssignment::create([
-                            'contentobject_id' => $userObject->attribute('id'),
-                            'contentobject_version' => $userObject->attribute('current_version'),
-                            'parent_node' => (int)eZINI::instance()->variable("UserSettings", "DefaultUserPlacement"),
-                            'is_main' => 1
-                        ]);
-                        $nodeAssignment->store();
-                        eZContentOperationCollection::publishNode($nodeAssignment->attribute('parent_node'), $userObject->attribute('id'), $userObject->attribute('current_version'), false);
-                        $this->log('debug', 'Force set main node to user', __METHOD__);
-                    } else {
-                        eZUserOperationCollection::publishUserContentObject($user->id());
-                        eZUserOperationCollection::sendUserNotification($user->id());
-                        $this->log('debug', 'Force publish user and send notification', __METHOD__);
-                    }
-                    if ($user->attribute('email') !== $this->mappedVars['UserEmail']){
-                        $userByEmail = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
-                        if (!$userByEmail){
-                            $user->setAttribute('email', $this->mappedVars['UserEmail']);
-                            $user->store();
-                            $this->log('debug', 'Update user email', __METHOD__);
+                    if (!$userObject->mainNodeID()) {
+                        if (count($userObject->assignedNodes()) === 0) {
+                            $nodeAssignment = eZNodeAssignment::create([
+                                'contentobject_id' => $userObject->attribute('id'),
+                                'contentobject_version' => $userObject->attribute('current_version'),
+                                'parent_node' => (int)eZINI::instance()->variable("UserSettings", "DefaultUserPlacement"),
+                                'is_main' => 1
+                            ]);
+                            $nodeAssignment->store();
+                            eZContentOperationCollection::publishNode(
+                                $nodeAssignment->attribute('parent_node'),
+                                $userObject->attribute('id'),
+                                $userObject->attribute('current_version'),
+                                false
+                            );
+                            $this->log('debug', 'Force set main node to user', __METHOD__);
+                        } else {
+                            eZUserOperationCollection::publishUserContentObject($user->id());
+                            eZUserOperationCollection::sendUserNotification($user->id());
+                            $this->log('debug', 'Force publish user and send notification', __METHOD__);
+                        }
+                        if ($user->attribute('email') !== $this->mappedVars['UserEmail']) {
+                            $userByEmail = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
+                            if (!$userByEmail) {
+                                $user->setAttribute('email', $this->mappedVars['UserEmail']);
+                                $user->store();
+                                $this->log('debug', 'Update user email', __METHOD__);
+                            }
                         }
                     }
+                    eZContentFunctions::updateAndPublishObject($user->contentObject(), ['attributes' => $this->getUserAttributesString()]);
+                }else{
+                    $this->log('debug', 'Auth user exist as ' . $userObject->attribute('class_identifier'), __METHOD__);
                 }
-                eZContentFunctions::updateAndPublishObject($user->contentObject(), ['attributes' => $this->getUserAttributesString()]);
-
                 $this->loginUser($user);
 
                 return $this->handleRedirect($module, $user);
@@ -202,11 +210,35 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
 
         $this->log('debug', 'Auth user does not exist: create user', __METHOD__);
 
+        $remoteId  = false;
+        $remoteGenerator = $this->siracIni->variable('HandlerSettings', 'RemoteIdGenerator');
+        if (is_callable($remoteGenerator)){
+            $remoteId = call_user_func($remoteGenerator, $this);
+        }
+
+        if ($remoteId){
+            $remoteIdAlreadyExists = eZContentObject::fetchByRemoteID($remoteId);
+            if ($remoteIdAlreadyExists instanceof eZContentObject){
+                throw new SiracDuplicateAttributeException('RemoteId');
+            }
+        }
+        $usernameAlreadyExists = eZUser::fetchByName($this->mappedVars['UserLogin']);
+        if ($usernameAlreadyExists instanceof eZUser){
+            throw new SiracDuplicateAttributeException('UserLogin');
+        }
+        $emailAlreadyExists = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
+        if ($emailAlreadyExists instanceof eZUser){
+            throw new SiracDuplicateAttributeException('UserEmail');
+        }
+
         $params = array();
         $params['creator_id'] = $this->getUserCreatorId();
         $params['class_identifier'] = $this->getUserClass()->attribute('identifier');
         $params['parent_node_id'] = $this->getUserParentNodeId();
         $params['attributes'] = $this->getUserAttributesString();
+        if ($remoteId){
+            $params['remote_id'] = $remoteId;
+        }
 
         $contentObject = eZContentFunctions::createAndPublishObject($params);
 
@@ -226,6 +258,29 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
     }
 
     /**
+     * @return eZContentClass[]
+     */
+    public function getExistingUserClasses()
+    {
+        $classes = [];
+        if ($this->siracIni->hasVariable('HandlerSettings', 'ExistingUserClasses')) {
+            $classIdentifierList = $this->siracIni->variable('HandlerSettings', 'ExistingUserClasses');
+            foreach ($classIdentifierList as $classIdentifier) {
+                $class = eZContentClass::fetchByIdentifier($classIdentifier);
+                if ($class instanceof eZContentClass) {
+                    $classes[] = $class;
+                }
+            }
+        }else{
+            $classIdentifierList = [$this->getUserClass()->attribute('identifier')];
+            $classes = [$this->getUserClass()];
+        }
+        $this->log('debug', 'Find user by classes ' . implode(', ', $classIdentifierList), __METHOD__);
+
+        return $classes;
+    }
+
+    /**
      * @param array $data
      * @return eZUser|false
      */
@@ -234,7 +289,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         foreach ($this->existingUserHandlers as $callable) {
             $user = call_user_func($callable, $this);
             if ($user instanceof eZUser) {
-                $this->log('debug', implode('::', $callable) . ' returns a valid user', __METHOD__);
+                $this->log('debug', implode('::', $callable) . ' returns a valid user: ' . $user->id(), __METHOD__);
                 return $user;
             } else {
                 $this->log('debug', implode('::', $callable) . ' does not return a valid user', __METHOD__);
@@ -269,7 +324,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface
         }
 
         if ($this->accountAttributeIdentifier === false || !isset($attributes[$this->accountAttributeIdentifier])) {
-            throw new Exception('Invalid user account data');
+            throw new SiracMissingMapException('Invalid user account data');
         }
 
         return $attributes;

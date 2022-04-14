@@ -11,5 +11,13 @@
             <source>Back to site</source>
             <translation type="unfinished"/>
         </message>
+        <message>
+            <source>Something went wrong...</source>
+            <translation type="unfinished"/>
+        </message>
+        <message>
+            <source>Contact support and report that you have received an error with code %code</source>
+            <translation type="unfinished"/>
+        </message>
     </context>
 </TS>
