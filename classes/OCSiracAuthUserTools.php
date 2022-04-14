@@ -6,7 +6,7 @@ class OCSiracAuthUserTools
     {
         $mappedVars = $handler->getMappedVars();
         if (empty($mappedVars['FiscalCode'])) {
-            throw new Exception('Fiscal code not found');
+            return false;
         }
         $fiscalCode = $mappedVars['FiscalCode'];
 
@@ -20,6 +20,36 @@ class OCSiracAuthUserTools
                         if ($userObject instanceof eZContentObject) {
                             $user = eZUser::fetch($userObject->attribute('id'));
                             if ($user instanceof eZUser){
+                                return $user;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static function getUserByFiscalCodeAndEmail(OCSiracAuthUserHandlerInterface $handler)
+    {
+        $mappedVars = $handler->getMappedVars();
+        if (empty($mappedVars['FiscalCode'])) {
+            return false;
+        }
+        $fiscalCode = $mappedVars['FiscalCode'];
+        $email = $mappedVars['UserEmail'];
+
+        if (class_exists('OCCodiceFiscaleType')) {
+            $classes = self::getUserClasses($handler);
+            foreach ($classes as $class) {
+                /** @var eZContentClassAttribute $attribute */
+                foreach ($class->dataMap() as $attribute) {
+                    if ($attribute->attribute('data_type_string') == OCCodiceFiscaleType::DATA_TYPE_STRING) {
+                        $userObject = self::fetchObjectByFiscalCode($fiscalCode, $attribute->attribute('id'));
+                        if ($userObject instanceof eZContentObject) {
+                            $user = eZUser::fetch($userObject->attribute('id'));
+                            if ($user instanceof eZUser && strtolower($user->Email) == strtolower($email) ){
                                 return $user;
                             }
                         }
@@ -61,9 +91,37 @@ class OCSiracAuthUserTools
     public static function getUserByEmail(OCSiracAuthUserHandlerInterface $handler)
     {
         $mappedVars = $handler->getMappedVars();
-        $user = eZUser::fetchByEmail($mappedVars['UserEmail']);
 
-        return $user;
+        /** @var eZUser[] $users */
+        $users = eZPersistentObject::fetchObjectList(
+            eZUser::definition(),
+            null,
+            ['LOWER( email )' => strtolower($mappedVars['UserEmail'])]
+        );
+
+        if (count($users) === 0) {
+            return false;
+        }
+
+        if (count($users) === 1) {
+            return $users[0];
+        }
+
+        $usersByClass = [];
+        foreach ($users as $user) {
+            if ($user->contentObject() instanceof eZContentObject) {
+                $usersByClass[$user->contentObject()->attribute('class_identifier')][] = $user;
+            }
+        }
+        if (count($usersByClass) > 0) {
+            foreach (self::getUserClasses($handler) as $userClass) {
+                if (isset($usersByClass[$userClass->attribute('identifier')])) {
+                    return $usersByClass[$userClass->attribute('identifier')][0];
+                }
+            }
+        }
+
+        return false;
     }
 
     public static function getUserByLogin(OCSiracAuthUserHandlerInterface $handler)

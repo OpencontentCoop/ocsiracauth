@@ -25,6 +25,8 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
 
     protected $accountAttributeIdentifier;
 
+    protected $existingUserClasses;
+
     public function __construct()
     {
         $this->initialize();
@@ -146,10 +148,12 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
      */
     public function login(eZModule $module)
     {
+        $this->log('debug', 'Server vars: ' . json_encode($this->serverVars), __METHOD__);
         if (empty($this->serverVars)) {
             throw new SiracMissingServerVarException("Server vars not found", 1);
         }
 
+        $this->log('debug', 'Mapped vars: ' . json_encode($this->mappedVars), __METHOD__);
         if (empty($this->mappedVars['UserLogin']) || empty($this->mappedVars['UserEmail']) || empty($this->mappedVars['FiscalCode'])) {
             throw new SiracMissingServerVarException("Mapped vars are incomplete", 1);
         }
@@ -208,7 +212,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
             }
         }
 
-        $this->log('debug', 'Auth user does not exist: create user', __METHOD__);
+        $this->log('debug', 'Auth user does not exist: create new user', __METHOD__);
 
         $remoteId  = false;
         $remoteGenerator = $this->siracIni->variable('HandlerSettings', 'RemoteIdGenerator');
@@ -245,6 +249,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
         if ($contentObject instanceof eZContentObject) {
             $user = eZUser::fetch($contentObject->attribute('id'));
             if ($user instanceof eZUser) {
+                $this->existingUserClasses = [$this->getUserClass()];
                 $siracUser = $this->getExistingUser();
                 if ($siracUser instanceof eZUser && $siracUser->id() == $user->id()) {
                     $this->loginUser($user);
@@ -254,7 +259,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
             }
         }
 
-        throw new Exception("Error creating user", 1);
+        throw new SiracException("Error creating user");
     }
 
     /**
@@ -262,22 +267,24 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
      */
     public function getExistingUserClasses()
     {
-        $classes = [];
-        if ($this->siracIni->hasVariable('HandlerSettings', 'ExistingUserClasses')) {
-            $classIdentifierList = $this->siracIni->variable('HandlerSettings', 'ExistingUserClasses');
-            foreach ($classIdentifierList as $classIdentifier) {
-                $class = eZContentClass::fetchByIdentifier($classIdentifier);
-                if ($class instanceof eZContentClass) {
-                    $classes[] = $class;
+        if ($this->existingUserClasses === null) {
+            $this->existingUserClasses = [];
+            if ($this->siracIni->hasVariable('HandlerSettings', 'ExistingUserClasses')) {
+                $classIdentifierList = $this->siracIni->variable('HandlerSettings', 'ExistingUserClasses');
+                foreach ($classIdentifierList as $classIdentifier) {
+                    $class = eZContentClass::fetchByIdentifier($classIdentifier);
+                    if ($class instanceof eZContentClass) {
+                        $this->existingUserClasses[] = $class;
+                    }
                 }
+            } else {
+                $classIdentifierList = [$this->getUserClass()->attribute('identifier')];
+                $this->existingUserClasses = [$this->getUserClass()];
             }
-        }else{
-            $classIdentifierList = [$this->getUserClass()->attribute('identifier')];
-            $classes = [$this->getUserClass()];
+            $this->log('debug', 'Find user by classes ' . implode(', ', $classIdentifierList), __METHOD__);
         }
-        $this->log('debug', 'Find user by classes ' . implode(', ', $classIdentifierList), __METHOD__);
 
-        return $classes;
+        return $this->existingUserClasses;
     }
 
     /**
@@ -333,6 +340,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
     protected function loginUser(eZUser $user)
     {
         $userID = $user->attribute('contentobject_id');
+        $this->log('debug', 'Login user ' . $userID, __METHOD__);
 
         // if audit is enabled logins should be logged
         eZAudit::writeAudit('user-login', array('User id' => $userID, 'User login' => $user->attribute('login')));
