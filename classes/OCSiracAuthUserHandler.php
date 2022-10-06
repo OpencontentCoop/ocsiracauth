@@ -79,9 +79,16 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
 
     private function mapServerVar($var)
     {
-        if (strpos($var, '|') !== false){
+        if (strpos($var, '+') !== false) {
+            $vars = explode('+', $var);
+            $mapped = [];
+            foreach ($vars as $optionVar) {
+                $mapped[] = $this->mapServerVar(trim($optionVar));
+            }
+            return trim(implode(' ', $mapped));
+        } elseif (strpos($var, '|') !== false) {
             $vars = explode('|', $var);
-            foreach ($vars as $optionVar){
+            foreach ($vars as $optionVar) {
                 $mapped = $this->mapServerVar($optionVar);
                 if (!empty($mapped)) {
                     return $mapped;
