@@ -21,6 +21,12 @@ $ViewList['slo'] = array(
     'params' => array(),
     'unordered_params' => array()
 );
+$ViewList['verify_email'] = array(
+    'functions' => array('auth'),
+    'script' => 'verify_email.php',
+    'params' => array(),
+    'unordered_params' => array()
+);
 
 $FunctionList = array();
 $FunctionList['auth'] = array();

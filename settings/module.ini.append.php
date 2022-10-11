@@ -3,5 +3,6 @@
 [ModuleSettings]
 ExtensionRepositories[]=ocsiracauth
 ModuleList[]=sirac
+ModuleList[]=verify_sirac_user
 
 */ ?>

@@ -37,11 +37,13 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
         $this->siracIni = eZINI::instance('ocsiracauth.ini');
 
         foreach ($this->siracIni->variable('HandlerSettings', 'ExistingUserHandlers') as $handler) {
-            $callable = explode('::', $handler);
-            if (is_callable($callable)) {
-                $this->existingUserHandlers[] = $callable;
-            } else {
-                $this->log('error', "$handler is not callable", __METHOD__);
+            if (!empty($handler)) {
+                $callable = explode('::', $handler);
+                if (is_callable($callable)) {
+                    $this->existingUserHandlers[] = $callable;
+                } else {
+                    $this->log('error', "$handler is not callable", __METHOD__);
+                }
             }
         }
 
@@ -238,8 +240,21 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
             throw new SiracDuplicateAttributeException('UserLogin');
         }
         $emailAlreadyExists = eZUser::fetchByEmail($this->mappedVars['UserEmail']);
-        if ($emailAlreadyExists instanceof eZUser){
-            throw new SiracDuplicateAttributeException('UserEmail');
+        if ($emailAlreadyExists instanceof eZUser) {
+            $emailAlreadyExistsClassIdentifier = $emailAlreadyExists->contentObject()->attribute('class_identifier');
+            if ($emailAlreadyExistsClassIdentifier == $this->getUserClass()->attribute('identifier')
+                && eZMail::validate($emailAlreadyExists->attribute('email'))) {
+                $e = new SiracDuplicateEmailException();
+                $e->setUser($emailAlreadyExists);
+                $e->setLoginAttributes([
+                    'remote_id' => $remoteId,
+                    'mapped_vars' => $this->mappedVars,
+                    'attributes' => $this->getUserAttributesString(),
+                ]);
+                throw $e;
+            }else{
+                throw new SiracDuplicateAttributeException('UserEmail');
+            }
         }
 
         $params = array();

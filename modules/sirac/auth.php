@@ -40,9 +40,21 @@ try {
     }
     return $handler->login($module);
 
+} catch (SiracDuplicateEmailException $e) {
+    if ($e->getUser() instanceof eZUser) {
+        $tpl = eZTemplate::factory();
+        $tpl->setVariable('login_attributes', $e->getLoginAttributes());
+        $tpl->setVariable('user', $e->getUser());
+        OCSiracEmailVerifier::instanceFromUser($e->getUser())->sendMail($e->getLoginAttributes());
+        $Result['content'] = $tpl->fetch('design:sirac/verify_email_form.tpl');
+        $Result['node_id'] = 0;
+    }else{
+        return $module->handleError($e->getErrorCode(), 'sirac');
+    }
+
 } catch (SiracException $e) {
     eZDebug::writeError($e->getMessage(), __FILE__);
-    return $module->handleError($e->getErrorCode(), 'sirac');
+    return $module->handleError(SiracException::DUPLICATE_VALUE_ERROR, 'sirac');
 
 } catch (Exception $e) {
     eZDebug::writeError($e->getMessage(), __FILE__);
