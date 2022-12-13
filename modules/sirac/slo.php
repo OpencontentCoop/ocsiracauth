@@ -5,7 +5,11 @@ $module = $Params['Module'];
 
 eZSession::remove();
 
-$redirectUrl = isset($_REQUEST["return"]) ? $_REQUEST["return"] : '/';
-$module->RedirectURI = $redirectUrl;
+if (isset($_REQUEST["return"])){
+    eZHTTPTool::headerVariable( 'Location', $_REQUEST["return"] );
+    eZExecution::cleanExit();
+}
+
+$module->RedirectURI = '/';
 $module->setExitStatus(eZModule::STATUS_REDIRECT);
 return;
