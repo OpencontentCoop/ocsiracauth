@@ -419,7 +419,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
                     $this->log('warning', "Cannot find redirection URI: there is no attribute '$userUriAttrName' in object '" .
                         $userObject->attribute('name') .
                         "' of class '" .
-                        $userObject->attribute('class_name') . "'.");
+                        $userObject->attribute('class_name') . "'.", __METHOD__);
                 } elseif (($uriAttribute = $userDataMap[$userUriAttrName])
                     && ($uri = $uriAttribute->attribute('content'))) {
                     $redirectionURI = $uri;
@@ -443,7 +443,7 @@ class OCSiracAuthUserHandler implements OCSiracAuthUserHandlerInterface, OCSirac
                             $this->log('warning', "Cannot find redirection URI: there is no attribute '$groupUriAttrName' in object '" .
                                 $group->attribute('name') .
                                 "' of class '" .
-                                $group->attribute('class_name') . "'.");
+                                $group->attribute('class_name') . "'.", __METHOD__);
                             continue;
                         }
                         $uri = $groupDataMap[$groupUriAttrName]->attribute('content');
