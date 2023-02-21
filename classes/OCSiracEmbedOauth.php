@@ -19,7 +19,9 @@ class OCSiracEmbedOauth
     private function __construct()
     {
         $this->settings = eZINI::instance('ocsiracauth.ini')->group('EmbedOauth');
-        $this->settings['scopes'] = 'profile';
+        if (!isset($this->settings['scopes'])) {
+            $this->settings['scopes'] = 'profile';
+        }
         $this->provider = new GenericProvider($this->settings);
     }
 
